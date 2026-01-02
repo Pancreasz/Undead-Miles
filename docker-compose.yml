@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  # 1. The Database (Postgres)
+  postgres:
+    image: postgres:15-alpine
+    container_name: deadahead-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: cpre888
+      POSTGRES_DB: undeadmiles
+    ports:
+      - "5555:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. The Message Broker (RabbitMQ)
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: undeadmiles-rabbitmq
+    ports:
+      - "5672:5672"   # For Go code to talk to
+      - "15672:15672" # For you to view the UI in browser
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+
+volumes:
+  postgres_data:
