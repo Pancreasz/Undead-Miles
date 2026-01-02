@@ -1,4 +1,4 @@
-module github.com/pancreasz/Undead-Miles/watcher
+module github.com/Pancreasz/Undead-Miles/watcher
 
 go 1.24.5
 

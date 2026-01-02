@@ -1,0 +1,18 @@
+version: "2"
+sql:
+  - schema: "sql/schema"     # Reads 001_watchers.sql
+    queries: "sql/queries"   # Reads watchers.sql
+    engine: "postgresql"
+    gen:
+      go:
+        package: "database"
+        out: "internal/database"
+        sql_package: "pgx/v5"
+        # We need the overrides again so it uses standard Go types
+        overrides:
+          - db_type: "uuid"
+            go_type: "github.com/google/uuid.UUID"
+          - db_type: "timestamp"
+            go_type: "time.Time"
+          - db_type: "timestamptz"
+            go_type: "time.Time"
