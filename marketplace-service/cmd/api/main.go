@@ -24,7 +24,7 @@ func getEnv(key, fallback string) string {
 
 func main() {
 	// 1. Database
-	dbURL := getEnv("DATABASE_URL", "postgres://postgres:cpre888@localhost:5555/undeadmiles?sslmode=disable")
+	dbURL := getEnv("DATABASE_URL", "postgres://postgres:cpre888@localhost:5556/undeadmiles?sslmode=disable")
 	connPool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
 		log.Fatal("Cannot connect to database:", err)
