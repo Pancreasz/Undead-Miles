@@ -1,24 +1,22 @@
 package handler
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/Pancreasz/Undead-Miles/marketplace/internal/database"
 	"github.com/Pancreasz/Undead-Miles/marketplace/internal/event"
+	"github.com/gin-gonic/gin" // Import Gin
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// The Struct holds our dependencies
 type Handler struct {
 	DB     *database.Queries
 	Rabbit *event.RabbitClient
 }
 
-// New creates a new Handler instance
 func New(db *database.Queries, rabbit *event.RabbitClient) *Handler {
 	return &Handler{
 		DB:     db,
@@ -26,44 +24,42 @@ func New(db *database.Queries, rabbit *event.RabbitClient) *Handler {
 	}
 }
 
-// --- Request Structs ---
 type createTripRequest struct {
-	Origin        string    `json:"origin"`
-	Destination   string    `json:"destination"`
-	DriverID      string    `json:"driver_id"`
-	PriceThb      int32     `json:"price_thb"`
-	DepartureTime time.Time `json:"departure_time"`
+	Origin        string    `json:"origin" binding:"required"`
+	Destination   string    `json:"destination" binding:"required"`
+	DriverID      string    `json:"driver_id" binding:"required"`
+	PriceThb      int32     `json:"price_thb" binding:"required"`
+	DepartureTime time.Time `json:"departure_time" binding:"required"`
 }
 
 // --- Route Functions ---
 
-func (h *Handler) ListTrips(w http.ResponseWriter, r *http.Request) {
-	trips, err := h.DB.ListTrips(r.Context())
+func (h *Handler) ListTrips(c *gin.Context) {
+	trips, err := h.DB.ListTrips(c.Request.Context())
 	if err != nil {
-		http.Error(w, "Failed to fetch trips", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch trips"})
 		return
 	}
-	respondWithJSON(w, 200, trips)
+	c.JSON(http.StatusOK, trips)
 }
 
-func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request) {
-	// 1. Parse JSON
-	decoder := json.NewDecoder(r.Body)
-	params := createTripRequest{}
-	err := decoder.Decode(&params)
-	if err != nil {
-		respondWithJSON(w, 400, map[string]string{"error": "Invalid JSON format"})
+func (h *Handler) CreateTrip(c *gin.Context) {
+	var params createTripRequest
+
+	// 1. Parse JSON (Gin style)
+	if err := c.ShouldBindJSON(&params); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	driverUUID, err := uuid.Parse(params.DriverID)
 	if err != nil {
-		respondWithJSON(w, 400, map[string]string{"error": "Invalid Driver UUID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Driver UUID"})
 		return
 	}
 
 	// 2. Database Call
-	trip, err := h.DB.CreateTrip(r.Context(), database.CreateTripParams{
+	trip, err := h.DB.CreateTrip(c.Request.Context(), database.CreateTripParams{
 		Origin:      params.Origin,
 		Destination: params.Destination,
 		DriverID:    driverUUID,
@@ -76,22 +72,15 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Println("Database Error:", err)
-		respondWithJSON(w, 500, map[string]string{"error": "Could not create trip"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create trip"})
 		return
 	}
 
 	// 3. RabbitMQ Publish
-	err = h.Rabbit.Publish(r.Context(), trip)
+	err = h.Rabbit.Publish(c.Request.Context(), trip)
 	if err != nil {
 		log.Println("WARNING: Failed to publish event:", err)
 	}
 
-	respondWithJSON(w, 201, trip)
-}
-
-// --- Helper ---
-func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(payload)
+	c.JSON(http.StatusCreated, trip)
 }

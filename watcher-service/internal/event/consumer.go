@@ -1,54 +1,79 @@
 package event
 
 import (
+	"context"
 	"encoding/json"
 	"log"
+	"time"
+
+	"github.com/Pancreasz/Undead-Miles/watcher/internal/database" // Update with your actual path
 )
 
-// Consumer is a struct that listens for messages
 type Consumer struct {
 	client *RabbitClient
+	db     *database.Queries // <--- NEW: Access to the DB
 }
 
-func NewConsumer(client *RabbitClient) *Consumer {
+// Update constructor to accept DB
+func NewConsumer(client *RabbitClient, db *database.Queries) *Consumer {
 	return &Consumer{
 		client: client,
+		db:     db,
 	}
 }
 
-// Listen starts a loop that reads from the queue
+type tripMessage struct {
+	Origin      string `json:"origin"`
+	Destination string `json:"destination"`
+}
+
 func (c *Consumer) Listen(queueName string) error {
-	msgs, err := c.client.ch.Consume(
-		queueName, // queue
-		"",        // consumer tag
-		true,      // auto-ack (true means we tell RabbitMQ "Got it!" immediately)
-		false,     // exclusive
-		false,     // no-local
-		false,     // no-wait
-		nil,       // args
-	)
+	msgs, err := c.client.ch.Consume(queueName, "", true, false, false, false, nil)
 	if err != nil {
 		return err
 	}
 
-	// This is a "Blocking Channel" - it keeps the program alive
 	forever := make(chan bool)
 
 	go func() {
 		for d := range msgs {
-			// This code runs every time a message arrives!
-			log.Printf("Received a message: %s", d.Body)
+			log.Printf("Received message: %s", d.Body)
 
-			// TODO: Add logic here to match against Database Alerts
-			var tripData map[string]interface{}
-			if err := json.Unmarshal(d.Body, &tripData); err == nil {
-				log.Printf("New Trip Detected from %s to %s", tripData["Origin"], tripData["Destination"])
+			// 1. Parse the Trip Data
+			var trip tripMessage
+			if err := json.Unmarshal(d.Body, &trip); err != nil {
+				log.Printf("Error parsing JSON: %v", err)
+				continue
+			}
+
+			// 2. Check Database for Matches
+			// We use a background context here
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+			matches, err := c.db.FindMatches(ctx, database.FindMatchesParams{
+				Origin:      trip.Origin,
+				Destination: trip.Destination,
+			})
+			cancel() // Clean up context
+
+			if err != nil {
+				log.Printf("Error querying database: %v", err)
+				continue
+			}
+
+			// 3. Log the Result (Simulating sending emails)
+			if len(matches) > 0 {
+				log.Printf("🔥 FOUND %d MATCHES! Sending alerts...", len(matches))
+				for _, watcher := range matches {
+					log.Printf("   -> Emailing user: %s", watcher.UserEmail)
+				}
+			} else {
+				log.Println("   -> No watchers found for this route.")
 			}
 		}
 	}()
 
-	log.Printf(" [*] Waiting for messages in %s. To exit press CTRL+C", queueName)
-	<-forever // Wait here forever
-
+	log.Printf(" [*] Waiting for messages in %s...", queueName)
+	<-forever
 	return nil
 }

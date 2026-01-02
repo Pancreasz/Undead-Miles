@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/cors"
+	"github.com/gin-contrib/cors" // Gin specific CORS
+	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	// Import your internal packages
 	"github.com/Pancreasz/Undead-Miles/marketplace/internal/database"
 	"github.com/Pancreasz/Undead-Miles/marketplace/internal/event"
 	"github.com/Pancreasz/Undead-Miles/marketplace/internal/handler"
@@ -34,26 +32,26 @@ func main() {
 	}
 	defer rabbitClient.Close()
 
-	// 3. Initialize Handler (Inject dependencies)
+	// 3. Initialize Handler
 	h := handler.New(db, rabbitClient)
 
-	// 4. Router
-	r := chi.NewRouter()
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-	}))
+	// 4. Router (Gin)
+	r := gin.Default()
 
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Marketplace Service is OK!"))
+	// Basic CORS for Gin
+	r.Use(cors.Default())
+
+	r.GET("/health", func(c *gin.Context) {
+		c.String(200, "Marketplace Service is OK!")
 	})
 
-	// Use the methods from the new handler package
-	r.Get("/trips", h.ListTrips)
-	r.Post("/trips", h.CreateTrip)
+	r.GET("/trips", h.ListTrips)
+	r.POST("/trips", h.CreateTrip)
 
 	// 5. Start Server
 	port := "8080"
 	fmt.Printf("Marketplace Service running on port %s...\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, r))
+	if err := r.Run(":" + port); err != nil {
+		log.Fatal(err)
+	}
 }

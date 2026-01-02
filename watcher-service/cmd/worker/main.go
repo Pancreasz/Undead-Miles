@@ -1,14 +1,28 @@
 package main
 
 import (
+	"context"
 	"log"
 
-	// Import your internal event package
+	"github.com/gin-gonic/gin" // Import Gin
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Pancreasz/Undead-Miles/watcher/internal/database"
 	"github.com/Pancreasz/Undead-Miles/watcher/internal/event"
+	"github.com/Pancreasz/Undead-Miles/watcher/internal/handler"
 )
 
 func main() {
-	// 1. Connect to RabbitMQ (Same URL as Marketplace)
+	// 1. Database Setup
+	dbURL := "postgres://postgres:cpre888@localhost:5555/undeadmiles?sslmode=disable"
+	connPool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		log.Fatal("Cannot connect to database:", err)
+	}
+	defer connPool.Close()
+	db := database.New(connPool)
+
+	// 2. RabbitMQ Setup
 	rabbitURL := "amqp://user:password@localhost:5672/"
 	rabbitClient, err := event.Connect(rabbitURL)
 	if err != nil {
@@ -16,11 +30,32 @@ func main() {
 	}
 	defer rabbitClient.Close()
 
-	// 2. Start the Consumer
-	consumer := event.NewConsumer(rabbitClient)
+	// ---------------------------------------------------------
+	// TASK A: Start the HTTP Server (Gin)
+	// ---------------------------------------------------------
+	h := handler.New(db)
 
-	// 3. Listen to the "trip_created" queue
-	// Note: This matches the queue name we declared in the Marketplace
+	// Set Gin to Release mode to quiet down logs (Optional)
+	// gin.SetMode(gin.ReleaseMode)
+
+	r := gin.Default() // Creates a router with default middleware (logger, recovery)
+	r.POST("/watchers", h.CreateWatcher)
+
+	// Run Gin in a Goroutine (Port 8081)
+	go func() {
+		port := "8081"
+		log.Printf("Watcher API (Gin) running on port %s...", port)
+		if err := r.Run(":" + port); err != nil {
+			log.Fatal("Failed to start Gin server:", err)
+		}
+	}()
+
+	// ---------------------------------------------------------
+	// TASK B: Start the RabbitMQ Consumer
+	// ---------------------------------------------------------
+	consumer := event.NewConsumer(rabbitClient, db)
+	log.Println("Watcher Consumer starting...")
+
 	err = consumer.Listen("trip_created")
 	if err != nil {
 		log.Println("Error listening to queue:", err)
