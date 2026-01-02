@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/gin-contrib/cors" // Gin specific CORS
 	"github.com/gin-gonic/gin"
@@ -14,9 +15,16 @@ import (
 	"github.com/Pancreasz/Undead-Miles/marketplace/internal/handler"
 )
 
+func getEnv(key, fallback string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return fallback
+}
+
 func main() {
 	// 1. Database
-	dbURL := "postgres://user:password@localhost:5432/deadahead?sslmode=disable"
+	dbURL := getEnv("DATABASE_URL", "postgres://postgres:cpre888@localhost:5555/undeadmiles?sslmode=disable")
 	connPool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
 		log.Fatal("Cannot connect to database:", err)
@@ -25,7 +33,7 @@ func main() {
 	db := database.New(connPool)
 
 	// 2. RabbitMQ
-	rabbitURL := "amqp://user:password@localhost:5672/"
+	rabbitURL := getEnv("RABBITMQ_URL", "amqp://user:password@localhost:5672/")
 	rabbitClient, err := event.Connect(rabbitURL)
 	if err != nil {
 		log.Fatal("Could not connect to RabbitMQ:", err)

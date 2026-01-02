@@ -1,29 +1,60 @@
 version: '3.8'
 
 services:
-  # 1. The Database (Postgres)
+  # 1. The Database (Updated settings)
   postgres:
     image: postgres:15-alpine
-    container_name: deadahead-db
+    container_name: undeadmiles-db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: cpre888
-      POSTGRES_DB: undeadmiles
+      POSTGRES_USER: postgres      # You changed this to 'postgres'
+      POSTGRES_PASSWORD: cpre888   # You changed this to 'cpre888'
+      POSTGRES_DB: undeadmiles     # You changed this to 'undeadmiles'
     ports:
-      - "5555:5432"
+      - "5555:5432"                # External port 5555, Internal 5432
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # 2. The Message Broker (RabbitMQ)
+  # 2. RabbitMQ
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: undeadmiles-rabbitmq
     ports:
-      - "5672:5672"   # For Go code to talk to
-      - "15672:15672" # For you to view the UI in browser
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: user
       RABBITMQ_DEFAULT_PASS: password
+
+  # 3. Marketplace Service (THE FIX IS HERE)
+  marketplace:
+    build: 
+      context: ./marketplace-service
+    container_name: marketplace
+    ports:
+      - "8080:8080"
+    environment:
+      # FIX: Must match the postgres settings above!
+      # Format: postgres://[USER]:[PASSWORD]@postgres:5432/[DB_NAME]
+      - DATABASE_URL=postgres://postgres:cpre888@localhost:5555/undeadmiles?sslmode=disable
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672/
+    depends_on:
+      - postgres
+      - rabbitmq
+
+  # 4. Watcher Service (THE FIX IS HERE)
+  watcher:
+    build: 
+      context: ./watcher-service
+    container_name: watcher
+    ports:
+      - "8081:8081"
+    environment:
+      # FIX: Must match the postgres settings above!
+      - DATABASE_URL=postgres://postgres:cpre888@localhost:5555/undeadmiles?sslmode=disable
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672/
+    depends_on:
+      - postgres
+      - rabbitmq
 
 volumes:
   postgres_data:

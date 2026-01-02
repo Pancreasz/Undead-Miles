@@ -17,9 +17,26 @@ type RabbitClient struct {
 
 // Connect establishes the TCP connection to RabbitMQ
 func Connect(url string) (*RabbitClient, error) {
-	conn, err := amqp.Dial(url)
-	if err != nil {
-		return nil, err
+	var conn *amqp.Connection
+	var err error
+
+	// Try to connect 15 times (30 seconds total)
+	counts := 0
+	for {
+		conn, err = amqp.Dial(url)
+		if err == nil {
+			log.Println("Connected to RabbitMQ!")
+			break
+		}
+
+		counts++
+		log.Printf("Failed to connect to RabbitMQ (Attempt %d/15). Retrying in 2s...", counts)
+
+		if counts > 15 {
+			return nil, fmt.Errorf("could not connect to RabbitMQ after multiple retries: %v", err)
+		}
+
+		time.Sleep(2 * time.Second)
 	}
 
 	ch, err := conn.Channel()
@@ -27,11 +44,10 @@ func Connect(url string) (*RabbitClient, error) {
 		return nil, err
 	}
 
-	// Declare the Queue to ensure it exists
-	// We call it "trip_created"
+	// Declare the Queue
 	_, err = ch.QueueDeclare(
 		"trip_created", // name
-		true,           // durable (messages survive if rabbitmq crashes)
+		true,           // durable
 		false,          // delete when unused
 		false,          // exclusive
 		false,          // no-wait
