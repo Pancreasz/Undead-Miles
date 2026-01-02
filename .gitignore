@@ -1,0 +1,23 @@
+# Go - Ignore compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+marketplace-service/marketplace-service
+watcher-service/watcher-service
+
+# Node - Ignore heavy library folders
+node_modules/
+npm-debug.log
+
+# Mac System files
+.DS_Store
+
+# IDE Settings (VS Code, JetBrains)
+.vscode/
+.idea/
+
+# Environment Variables (Sensitive!)
+.env
