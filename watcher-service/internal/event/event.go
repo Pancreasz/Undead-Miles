@@ -1,8 +1,6 @@
 package event
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -11,7 +9,8 @@ import (
 )
 
 type RabbitClient struct {
-	conn *amqp.Connection
+	// FIX: Capitalized 'Conn' so consumer.go can access it
+	Conn *amqp.Connection
 	ch   *amqp.Channel
 }
 
@@ -44,7 +43,7 @@ func Connect(url string) (*RabbitClient, error) {
 		return nil, err
 	}
 
-	// Declare the Queue
+	// Declare the Queue we are listening to
 	_, err = ch.QueueDeclare(
 		"trip_created", // name
 		true,           // durable
@@ -58,7 +57,7 @@ func Connect(url string) (*RabbitClient, error) {
 	}
 
 	return &RabbitClient{
-		conn: conn,
+		Conn: conn, // Assign to Capital field
 		ch:   ch,
 	}, nil
 }
@@ -66,36 +65,5 @@ func Connect(url string) (*RabbitClient, error) {
 // Close cleans up connections
 func (rc *RabbitClient) Close() {
 	rc.ch.Close()
-	rc.conn.Close()
-}
-
-// Publish sends a JSON message to the queue
-func (rc *RabbitClient) Publish(ctx context.Context, tripData interface{}) error {
-	// 1. Convert struct to JSON bytes
-	body, err := json.Marshal(tripData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal JSON: %w", err)
-	}
-
-	// 2. Publish to the queue
-	// Context with timeout to prevent hanging forever
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	err = rc.ch.PublishWithContext(ctx,
-		"",             // exchange
-		"trip_created", // routing key (queue name)
-		false,          // mandatory
-		false,          // immediate
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        body,
-		})
-
-	if err != nil {
-		return fmt.Errorf("failed to publish to RabbitMQ: %w", err)
-	}
-
-	log.Println("Successfully published event to RabbitMQ!")
-	return nil
+	rc.Conn.Close() // Use Capital field
 }

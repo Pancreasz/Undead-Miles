@@ -6,15 +6,15 @@ import (
 	"log"
 	"time"
 
-	"github.com/Pancreasz/Undead-Miles/watcher/internal/database" // Update with your actual path
+	"github.com/Pancreasz/Undead-Miles/watcher/internal/database"
+	// No amqp import needed here, we use the helper
 )
 
 type Consumer struct {
 	client *RabbitClient
-	db     *database.Queries // <--- NEW: Access to the DB
+	db     *database.Queries
 }
 
-// Update constructor to accept DB
 func NewConsumer(client *RabbitClient, db *database.Queries) *Consumer {
 	return &Consumer{
 		client: client,
@@ -28,6 +28,7 @@ type tripMessage struct {
 }
 
 func (c *Consumer) Listen(queueName string) error {
+	// We use c.client.ch (internal channel) for listening
 	msgs, err := c.client.ch.Consume(queueName, "", true, false, false, false, nil)
 	if err != nil {
 		return err
@@ -39,36 +40,45 @@ func (c *Consumer) Listen(queueName string) error {
 		for d := range msgs {
 			log.Printf("Received message: %s", d.Body)
 
-			// 1. Parse the Trip Data
 			var trip tripMessage
 			if err := json.Unmarshal(d.Body, &trip); err != nil {
 				log.Printf("Error parsing JSON: %v", err)
 				continue
 			}
 
-			// 2. Check Database for Matches
-			// We use a background context here
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
 			matches, err := c.db.FindMatches(ctx, database.FindMatchesParams{
 				Origin:      trip.Origin,
 				Destination: trip.Destination,
 			})
-			cancel() // Clean up context
+			cancel()
 
 			if err != nil {
 				log.Printf("Error querying database: %v", err)
 				continue
 			}
 
-			// 3. Log the Result (Simulating sending emails)
 			if len(matches) > 0 {
-				log.Printf("🔥 FOUND %d MATCHES! Sending alerts...", len(matches))
+				log.Printf("🔥 FOUND %d MATCHES! Sending events...", len(matches))
+
 				for _, watcher := range matches {
-					log.Printf("   -> Emailing user: %s", watcher.UserEmail)
+					payload := map[string]interface{}{
+						"user_id": watcher.UserEmail,
+						"message": "We found a trip from " + trip.Origin + " to " + trip.Destination,
+					}
+
+					// FIX: Use .Conn (Capital C) from event.go
+					// FIX: Call Publish() which lives in producer.go
+					err := Publish(c.client.Conn, "match_found", payload)
+
+					if err != nil {
+						log.Printf("Failed to publish match_found: %v", err)
+					} else {
+						log.Printf(" -> Event sent for user: %s", watcher.UserEmail)
+					}
 				}
 			} else {
-				log.Println("   -> No watchers found for this route.")
+				log.Println(" -> No watchers found for this route.")
 			}
 		}
 	}()
