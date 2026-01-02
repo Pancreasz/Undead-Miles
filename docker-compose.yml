@@ -51,5 +51,19 @@ services:
       - postgres
       - rabbitmq
 
+  notification:
+      build: 
+        context: ./notification-service
+      container_name: notification
+      ports:
+        - "8082:8082"
+      environment:
+        # Use the same Postgres & RabbitMQ credentials
+        - DATABASE_URL=postgres://postgres:cpre888@postgres:5432/undeadmiles?sslmode=disable
+        - RABBITMQ_URL=amqp://user:password@rabbitmq:5672/
+      depends_on:
+        - postgres
+        - rabbitmq
+
 volumes:
   postgres_data:
