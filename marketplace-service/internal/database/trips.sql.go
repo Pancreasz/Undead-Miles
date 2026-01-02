@@ -8,6 +8,7 @@ package database
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -20,7 +21,7 @@ RETURNING id, origin, destination, driver_id, price_thb, status, departure_time,
 type CreateTripParams struct {
 	Origin        string
 	Destination   string
-	DriverID      pgtype.UUID
+	DriverID      uuid.UUID
 	PriceThb      int32
 	DepartureTime pgtype.Timestamp
 }
@@ -53,7 +54,7 @@ SELECT id, origin, destination, driver_id, price_thb, status, departure_time, cr
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetTripById(ctx context.Context, id pgtype.UUID) (Trip, error) {
+func (q *Queries) GetTripById(ctx context.Context, id uuid.UUID) (Trip, error) {
 	row := q.db.QueryRow(ctx, getTripById, id)
 	var i Trip
 	err := row.Scan(
@@ -155,7 +156,7 @@ WHERE id = $1
 `
 
 type UpdateTripStatusParams struct {
-	ID     pgtype.UUID
+	ID     uuid.UUID
 	Status string
 }
 

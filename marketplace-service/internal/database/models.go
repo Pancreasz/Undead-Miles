@@ -5,14 +5,15 @@
 package database
 
 import (
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Trip struct {
-	ID            pgtype.UUID
+	ID            uuid.UUID
 	Origin        string
 	Destination   string
-	DriverID      pgtype.UUID
+	DriverID      uuid.UUID
 	PriceThb      int32
 	Status        string
 	DepartureTime pgtype.Timestamp

@@ -1,10 +1,18 @@
 version: "2"
 sql:
-  - schema: "sql/schema"     # Where your 001_trips.sql lives
-    queries: "sql/queries"   # Where you will write SELECT/INSERT commands
+  - schema: "sql/schema"
+    queries: "sql/queries"
     engine: "postgresql"
     gen:
       go:
         package: "database"
-        out: "internal/database" # Where models.go will appear
-        sql_package: "pgx/v5"    # Use the modern Postgres driver
+        out: "internal/database"
+        sql_package: "pgx/v5"
+        # 1. Add this overrides section
+        overrides:
+          - db_type: "uuid"
+            go_type: "github.com/google/uuid.UUID"
+          - db_type: "timestamp"
+            go_type: "time.Time"
+          - db_type: "timestamptz"
+            go_type: "time.Time"
