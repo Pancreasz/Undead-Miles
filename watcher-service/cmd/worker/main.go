@@ -5,12 +5,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/gin-gonic/gin" // Import Gin
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/Pancreasz/Undead-Miles/watcher/internal/database"
 	"github.com/Pancreasz/Undead-Miles/watcher/internal/event"
 	"github.com/Pancreasz/Undead-Miles/watcher/internal/handler"
+	"github.com/gin-gonic/gin" // Import Gin
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func getEnv(key, fallback string) string {
@@ -47,6 +47,7 @@ func main() {
 	// gin.SetMode(gin.ReleaseMode)
 
 	r := gin.Default() // Creates a router with default middleware (logger, recovery)
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	r.POST("/watchers", h.CreateWatcher)
 
 	// Run Gin in a Goroutine (Port 8081)

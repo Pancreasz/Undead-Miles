@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 5s # How often to check for data
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # We will teach our Go apps to talk to this later!
+  - job_name: 'undeadmiles-services'
+    static_configs:
+      - targets: ['marketplace:8080', 'watcher:8081', 'notification:8082']

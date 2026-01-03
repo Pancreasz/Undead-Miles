@@ -9,10 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	// We will create these packages in the next step
 	"github.com/Pancreasz/Undead-Miles/notification/internal/event"
 	"github.com/Pancreasz/Undead-Miles/notification/internal/handler"
 	"github.com/Pancreasz/Undead-Miles/notification/internal/repository"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -64,6 +64,7 @@ func main() {
 		c.String(200, "Notification Service is OK!")
 	})
 
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	// API to get notifications for a user (Frontend will use this)
 	r.GET("/notifications/:user_id", h.GetNotifications)
 

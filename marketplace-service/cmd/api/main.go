@@ -6,13 +6,13 @@ import (
 	"log"
 	"os"
 
-	"github.com/gin-contrib/cors" // Gin specific CORS
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/Pancreasz/Undead-Miles/marketplace/internal/database"
 	"github.com/Pancreasz/Undead-Miles/marketplace/internal/event"
 	"github.com/Pancreasz/Undead-Miles/marketplace/internal/handler"
+	"github.com/gin-contrib/cors" // Gin specific CORS
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func getEnv(key, fallback string) string {
@@ -53,6 +53,7 @@ func main() {
 		c.String(200, "Marketplace Service is OK!")
 	})
 
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	r.GET("/trips", h.ListTrips)
 	r.POST("/trips", h.CreateTrip)
 
