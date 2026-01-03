@@ -13,9 +13,20 @@ import (
 	"github.com/Pancreasz/Undead-Miles/notification/internal/handler"
 	"github.com/Pancreasz/Undead-Miles/notification/internal/repository"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/Pancreasz/Undead-Miles/notification/internal/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func main() {
+
+	shutdown := telemetry.InitTracer("notification-service", "jaeger:4318")
+	defer func() {
+		if err := shutdown(context.Background()); err != nil {
+			log.Fatal("failed to shutdown TracerProvider: %w", err)
+		}
+	}()
+
 	// 1. Database Connection
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -55,6 +66,9 @@ func main() {
 
 	// 4. HTTP Server (Gin)
 	r := gin.Default()
+
+	r.Use(otelgin.Middleware("notification-service"))
+
 	r.SetTrustedProxies(nil)
 	r.Use(cors.Default())
 

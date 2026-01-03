@@ -7,7 +7,7 @@
 /bin/
 marketplace-service/marketplace-service
 watcher-service/watcher-service
-
+jenkins_data
 # Node - Ignore heavy library folders
 node_modules/
 npm-debug.log

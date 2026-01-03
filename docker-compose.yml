@@ -101,5 +101,29 @@ services:
     depends_on:
       - prometheus
 
+  jaeger:
+      image: jaegertracing/all-in-one:latest
+      container_name: jaeger
+      environment:
+        - COLLECTOR_OTLP_ENABLED=true
+      ports:
+        - "16686:16686" # The UI (Frontend)
+        - "14268:14268" # Collector HTTP
+        - "4317:4317"   # OTLP gRPC
+        - "4318:4318"   # OTLP HTTP (Important for our Go app)
+
+  jenkins:
+      image: jenkins/jenkins:lts-jdk17
+      container_name: jenkins
+      user: root # Required to access Docker socket
+      ports:
+        - "8083:8080" # Jenkins UI (We use 8083 because 8080 is taken)
+        - "50000:50000"
+      volumes:
+        - ./jenkins_data:/var/jenkins_home # Persist Jenkins data
+        - /var/run/docker.sock:/var/run/docker.sock # Allow Jenkins to control Docker
+      depends_on:
+        - jaeger
+
 volumes:
   postgres_data:

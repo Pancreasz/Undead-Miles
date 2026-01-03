@@ -13,6 +13,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/Pancreasz/Undead-Miles/marketplace/internal/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func getEnv(key, fallback string) string {
@@ -23,6 +26,14 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
+
+	shutdown := telemetry.InitTracer("marketplace-service", "jaeger:4318")
+	defer func() {
+		if err := shutdown(context.Background()); err != nil {
+			log.Fatal("failed to shutdown TracerProvider: %w", err)
+		}
+	}()
+
 	// 1. Database
 	dbURL := getEnv("DATABASE_URL", "postgres://postgres:cpre888@localhost:5556/undeadmiles?sslmode=disable")
 	connPool, err := pgxpool.New(context.Background(), dbURL)
@@ -45,6 +56,8 @@ func main() {
 
 	// 4. Router (Gin)
 	r := gin.Default()
+
+	r.Use(otelgin.Middleware("marketplace-service"))
 
 	// Basic CORS for Gin
 	r.Use(cors.Default())

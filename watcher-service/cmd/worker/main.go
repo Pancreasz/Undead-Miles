@@ -11,6 +11,10 @@ import (
 	"github.com/gin-gonic/gin" // Import Gin
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	// 1. TELEMETRY IMPORTS
+	"github.com/Pancreasz/Undead-Miles/watcher/internal/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func getEnv(key, fallback string) string {
@@ -21,7 +25,19 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
-	// 1. Database Setup
+	// ---------------------------------------------------------
+	// 2. INITIALIZE JAEGER TRACER
+	// ---------------------------------------------------------
+	// Service Name: watcher-service
+	// Collector URL: jaeger:4318 (HTTP collector inside Docker network)
+	shutdown := telemetry.InitTracer("watcher-service", "jaeger:4318")
+	defer func() {
+		if err := shutdown(context.Background()); err != nil {
+			log.Fatal("failed to shutdown TracerProvider: %w", err)
+		}
+	}()
+
+	// 3. Database Setup
 	dbURL := getEnv("DATABASE_URL", "postgres://postgres:cpre888@localhost:5556/undeadmiles?sslmode=disable")
 	connPool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
@@ -30,7 +46,7 @@ func main() {
 	defer connPool.Close()
 	db := database.New(connPool)
 
-	// 2. RabbitMQ Setup
+	// 4. RabbitMQ Setup
 	rabbitURL := getEnv("RABBITMQ_URL", "amqp://user:password@localhost:5672/")
 	rabbitClient, err := event.Connect(rabbitURL)
 	if err != nil {
@@ -43,10 +59,12 @@ func main() {
 	// ---------------------------------------------------------
 	h := handler.New(db)
 
-	// Set Gin to Release mode to quiet down logs (Optional)
-	// gin.SetMode(gin.ReleaseMode)
+	r := gin.Default()
 
-	r := gin.Default() // Creates a router with default middleware (logger, recovery)
+	// 5. ADD TRACING MIDDLEWARE (Must be FIRST)
+	// This automatically tracks every incoming HTTP request
+	r.Use(otelgin.Middleware("watcher-service"))
+
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	r.POST("/watchers", h.CreateWatcher)
 
