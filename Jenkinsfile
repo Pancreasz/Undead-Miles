@@ -1,34 +1,67 @@
 pipeline {
-    agent none 
+    agent {
+        kubernetes {
+            // We define a "Pod" that has all the tools we need inside it
+            yaml '''
+            apiVersion: v1
+            kind: Pod
+            spec:
+              containers:
+              # Container 1: Golang for testing
+              - name: golang
+                image: golang:1.24-alpine
+                command:
+                - sleep
+                - infinity
+                
+              # Container 2: Kaniko for building images (replaces 'docker build')
+              - name: kaniko
+                image: gcr.io/kaniko-project/executor:debug
+                command:
+                - sleep
+                - infinity
+                env:
+                  - name: PATH
+                    value: /usr/local/bin:/kaniko
+            '''
+        }
+    }
 
     stages {
-        // --- STAGE 1: TEST ---
+        // --- STAGE 1: TEST (Runs in Golang container) ---
         stage('Test Services') {
-            agent {
-                docker { 
-                    image 'golang:1.24-alpine' // Using your new version
-                    reuseNode true
-                }
-            }
             steps {
-                echo 'Testing Marketplace...'
-                sh 'cd marketplace-service && go mod download && go test -v ./...'
-                
-                echo 'Testing Watcher...'
-                sh 'cd watcher-service && go mod download && go test -v ./...'
+                container('golang') {
+                    echo 'Testing Marketplace...'
+                    sh 'cd marketplace-service && go mod download && go test -v ./...'
+                    
+                    echo 'Testing Watcher...'
+                    sh 'cd watcher-service && go mod download && go test -v ./...'
+                }
             }
         }
 
-        // --- STAGE 2: BUILD (New!) ---
+        // --- STAGE 2: BUILD (Runs in Kaniko container) ---
         stage('Build Docker Images') {
-            agent any
             steps {
-                echo 'Building Docker Images...'
-                script {
-                    // This command uses the host's Docker to build the image
-                    // We tag it with 'jenkins-built' so you can easily find it later
-                    sh 'docker build -t undeadmiles-marketplace:jenkins-built ./marketplace-service'
-                    sh 'docker build -t undeadmiles-watcher:jenkins-built ./watcher-service'
+                container('kaniko') {
+                    echo 'Building Marketplace Image...'
+                    // Kaniko builds the image without needing a Docker daemon
+                    // --no-push ensures we just test the build (since we haven't set up registry credentials yet)
+                    sh '''
+                    /kaniko/executor --context ./marketplace-service \
+                    --dockerfile ./marketplace-service/Dockerfile \
+                    --destination my-repo/undeadmiles-marketplace:jenkins-built \
+                    --no-push 
+                    '''
+
+                    echo 'Building Watcher Image...'
+                    sh '''
+                    /kaniko/executor --context ./watcher-service \
+                    --dockerfile ./watcher-service/Dockerfile \
+                    --destination my-repo/undeadmiles-watcher:jenkins-built \
+                    --no-push
+                    '''
                 }
             }
         }
