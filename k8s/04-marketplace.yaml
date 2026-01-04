@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: marketplace
+spec:
+  type: LoadBalancer # This exposes the IP to your Windows machine
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080 # We force port 30080 so it's easy to find
+  selector:
+    app: marketplace
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketplace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: marketplace
+  template:
+    metadata:
+      labels:
+        app: marketplace
+    spec:
+      containers:
+        - name: marketplace
+          image: undeadmiles-marketplace:k8s # The image we just built
+          imagePullPolicy: Never # IMPORTANT: Use local image, don't download from internet
+          ports:
+            - containerPort: 8080
+          env:
+            # Notice the hostnames match the K8s Service names we defined earlier
+            - name: DATABASE_URL
+              value: "postgres://postgres:cpre888@postgres:5432/undeadmiles?sslmode=disable"
+            - name: RABBITMQ_URL
+              value: "amqp://user:password@rabbitmq:5672/"
