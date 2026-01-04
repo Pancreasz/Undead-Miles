@@ -43,5 +43,128 @@
 
 
 .container { max-width: 800px; margin: 0 auto; padding: 20px; font-family: sans-serif; }
-.trip-card { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; background: #f9f9f9; }
+.trip-card { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; background: #f9f9f9; color: black;}
 .error { color: red; font-weight: bold; }
+
+/* Add to App.css */
+.notification-box {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #28a745; /* Green */
+  color: white;
+  padding: 15px 25px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  font-weight: bold;
+  animation: slideIn 0.5s ease-out;
+  z-index: 1000;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* --- Header Layout --- */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background-color: #333;
+  color: white;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+/* --- Notification Wrapper --- */
+.notification-wrapper {
+  position: relative; /* Crucial for absolute positioning of dropdown */
+}
+
+/* --- Bell Button --- */
+.bell-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  position: relative;
+  padding: 5px;
+  transition: transform 0.2s;
+}
+
+.bell-btn:hover {
+  transform: scale(1.1);
+}
+
+/* --- Red Badge --- */
+.badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: red;
+  color: white;
+  font-size: 0.7rem;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+/* --- Dropdown Menu --- */
+.dropdown-menu {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  width: 300px;
+  background-color: white;
+  color: black;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  z-index: 1000;
+  overflow: hidden;
+  border: 1px solid #ddd;
+}
+
+.dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  background-color: #f1f1f1;
+  border-bottom: 1px solid #ddd;
+  font-weight: bold;
+}
+
+.clear-btn {
+  background: transparent;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.dropdown-content {
+  max-height: 200px; /* Scroll if too many notifications */
+  overflow-y: auto;
+}
+
+.notification-item {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.notification-item:hover {
+  background-color: #f9f9f9;
+}
+
+.empty-msg {
+  padding: 20px;
+  color: #888;
+  font-style: italic;
+}

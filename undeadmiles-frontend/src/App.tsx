@@ -1,53 +1,38 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
-import './App.css';
+// App.tsx
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-// 1. Define what a Trip looks like
-interface Trip {
-  id: string;
-  origin: string;
-  destination: string;
-  price_thb: number;
-}
+// Import your components
+import Navbar from './components/Navbar';
+import CreateTrip from './pages/CreateTrip';
+import CreateWatcher from './pages/CreateWatcher';
 
-function App() {
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [error, setError] = useState<string>('');
+// Placeholder for your existing Home page code
+import Home from './pages/Home'; // Assuming you moved your previous code here
 
-  // 2. Fetch data from K8s when page loads
-  useEffect(() => {
-    // Note: We access localhost:8080 directly because K8s exposed it via NodePort/LoadBalancer
-    axios.get('http://localhost:8080/trips')
-      .then(response => {
-        console.log("Data loaded:", response.data);
-        setTrips(response.data);
-      })
-      .catch(err => {
-        console.error("Error fetching trips:", err);
-        setError('Failed to load trips. Is K8s running?');
-      });
-  }, []);
-
+const App = () => {
   return (
-    <div className="container">
-      <h1 id="page-title">Undead Miles Marketplace</h1>
-      
-      {error && <p className="error">{error}</p>}
+    <BrowserRouter>
+      <div className="min-h-screen bg-gray-50">
+        {/* Navigation is always visible */}
+        <Navbar />
 
-      <div className="trip-list" id="trip-list">
-        {trips.length === 0 ? (
-          <p>No trips available...</p>
-        ) : (
-          trips.map(trip => (
-            <div key={trip.id} className="trip-card" data-testid="trip-card">
-              <h3>{trip.origin} ➔ {trip.destination}</h3>
-              <p>Price: ฿{trip.price_thb}</p>
-            </div>
-          ))
-        )}
+        {/* The content area changes based on the URL */}
+        <div className="p-4">
+          <Routes>
+            {/* 1. Home Page */}
+            <Route path="/" element={<Home />} />
+            
+            {/* 2. Create Trip Page */}
+            <Route path="/create-trip" element={<CreateTrip />} />
+            
+            {/* 3. Create Watcher Page */}
+            <Route path="/create-watcher" element={<CreateWatcher />} />
+          </Routes>
+        </div>
       </div>
-    </div>
+    </BrowserRouter>
   );
-}
+};
 
 export default App;
