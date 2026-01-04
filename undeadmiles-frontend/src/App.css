@@ -40,3 +40,8 @@
 .read-the-docs {
   color: #888;
 }
+
+
+.container { max-width: 800px; margin: 0 auto; padding: 20px; font-family: sans-serif; }
+.trip-card { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; background: #f9f9f9; }
+.error { color: red; font-weight: bold; }

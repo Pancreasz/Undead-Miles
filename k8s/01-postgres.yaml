@@ -1,15 +1,31 @@
+# 1. THE HARD DRIVE (Persistent Storage)
+# This requests 1GB of real disk space from Docker Desktop.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# 2. THE NETWORK (Service)
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres # This creates the hostname 'postgres' inside the cluster
+  name: postgres
 spec:
   ports:
     - port: 5432
   selector:
     app: postgres
-  clusterIP: None # Headless service for internal DB communication
+  clusterIP: None # Headless service is fine for internal communication
 
 ---
+# 3. THE DATABASE (Deployment)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -40,4 +56,5 @@ spec:
               mountPath: /var/lib/postgresql/data
       volumes:
         - name: postgres-storage
-          emptyDir: {} # WARNING: Data is lost if pod restarts. Good for testing, bad for prod.
+          persistentVolumeClaim:
+            claimName: postgres-pvc  # <--- This is the magic change!
