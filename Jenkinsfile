@@ -11,19 +11,20 @@ pipeline {
                 image: golang:1.24-alpine
                 command: ["sleep", "infinity"]
                 
-              # 2. Kaniko Container (UPDATED WITH RESOURCES)
+              # 2. Kaniko Container
               - name: kaniko
                 image: gcr.io/kaniko-project/executor:debug
                 command: ["/busybox/cat"]
                 tty: true
-                # === NEW: Give Kaniko enough RAM to compile Go ===
+                # === FIX 1: Explicitly set the working directory ===
+                workingDir: /home/jenkins/agent
                 resources:
+                  limits:
+                    memory: "2Gi"
+                    cpu: "1"
                   requests:
                     memory: "512Mi"
                     cpu: "500m"
-                  limits:
-                    memory: "2Gi"  # 2GB should be plenty for Go builds
-                    cpu: "1"
                 volumeMounts:
                   - name: kaniko-secret
                     mountPath: /kaniko/.docker
@@ -55,27 +56,26 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 container('kaniko') {
-                    // Tip: Split these into separate steps so logs are clearer
-                    // and Jenkins can manage resources better between them.
-                    
-                    echo 'Building Marketplace Image...'
-                    sh '''#!/busybox/sh
-                    /kaniko/executor --context ./marketplace-service \
-                    --dockerfile ./marketplace-service/Dockerfile \
-                    --destination my-repo/undeadmiles-marketplace:jenkins-built \
-                    --no-push
-                    '''
+                    // === FIX 2: Added explicit 'dir' block to be safe ===
+                    // This ensures Jenkins runs these commands in the root of your project
+                    dir('/home/jenkins/agent/workspace/UndeadMiles-Pipeline') {
+                        
+                        echo 'Building Marketplace Image...'
+                        sh '''#!/busybox/sh
+                        /kaniko/executor --context ./marketplace-service \
+                        --dockerfile ./marketplace-service/Dockerfile \
+                        --destination my-repo/undeadmiles-marketplace:jenkins-built \
+                        --no-push
+                        '''
 
-                    echo 'Cleaning up before next build...'
-                    // Optional: Brief pause or cleanup if needed, but RAM increase usually fixes it.
-
-                    echo 'Building Watcher Image...'
-                    sh '''#!/busybox/sh
-                    /kaniko/executor --context ./watcher-service \
-                    --dockerfile ./watcher-service/Dockerfile \
-                    --destination my-repo/undeadmiles-watcher:jenkins-built \
-                    --no-push
-                    '''
+                        echo 'Building Watcher Image...'
+                        sh '''#!/busybox/sh
+                        /kaniko/executor --context ./watcher-service \
+                        --dockerfile ./watcher-service/Dockerfile \
+                        --destination my-repo/undeadmiles-watcher:jenkins-built \
+                        --no-push
+                        '''
+                    }
                 }
             }
         }
