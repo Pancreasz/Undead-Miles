@@ -1,7 +1,6 @@
 pipeline {
     agent {
         kubernetes {
-            // We define a "Pod" that has all the tools we need inside it
             yaml '''
             apiVersion: v1
             kind: Pod
@@ -14,21 +13,31 @@ pipeline {
                 - sleep
                 - infinity
                 
-              # Container 2: Kaniko for building images (replaces 'docker build')
+              # Container 2: Kaniko for building images
+              # We MUST use the :debug tag to get a shell
               - name: kaniko
                 image: gcr.io/kaniko-project/executor:debug
+                # We use /busybox/cat to keep the container running since standard 'sleep' is missing
                 command:
-                - sleep
-                - infinity
-                env:
-                  - name: PATH
-                    value: /usr/local/bin:/kaniko
+                - /busybox/cat
+                tty: true
+                volumeMounts:
+                  - name: kaniko-secret
+                    mountPath: /kaniko/.docker
+              volumes:
+                - name: kaniko-secret
+                  secret:
+                    secretName: docker-registry-creds
+                    items:
+                      - key: .dockerconfigjson
+                        path: config.json
+                    optional: true # Make optional for now so it runs even without creds
             '''
         }
     }
 
     stages {
-        // --- STAGE 1: TEST (Runs in Golang container) ---
+        // --- STAGE 1: TEST ---
         stage('Test Services') {
             steps {
                 container('golang') {
@@ -41,27 +50,28 @@ pipeline {
             }
         }
 
-        // --- STAGE 2: BUILD (Runs in Kaniko container) ---
+        // --- STAGE 2: BUILD ---
         stage('Build Docker Images') {
             steps {
                 container('kaniko') {
-                    echo 'Building Marketplace Image...'
-                    // Kaniko builds the image without needing a Docker daemon
-                    // --no-push ensures we just test the build (since we haven't set up registry credentials yet)
-                    sh '''
-                    /kaniko/executor --context ./marketplace-service \
-                    --dockerfile ./marketplace-service/Dockerfile \
-                    --destination my-repo/undeadmiles-marketplace:jenkins-built \
-                    --no-push 
-                    '''
+                    // We must tell Jenkins to use the busybox shell
+                    script {
+                        echo 'Building Marketplace Image...'
+                        sh '''#!/busybox/sh
+                        /kaniko/executor --context ./marketplace-service \
+                        --dockerfile ./marketplace-service/Dockerfile \
+                        --destination my-repo/undeadmiles-marketplace:jenkins-built \
+                        --no-push
+                        '''
 
-                    echo 'Building Watcher Image...'
-                    sh '''
-                    /kaniko/executor --context ./watcher-service \
-                    --dockerfile ./watcher-service/Dockerfile \
-                    --destination my-repo/undeadmiles-watcher:jenkins-built \
-                    --no-push
-                    '''
+                        echo 'Building Watcher Image...'
+                        sh '''#!/busybox/sh
+                        /kaniko/executor --context ./watcher-service \
+                        --dockerfile ./watcher-service/Dockerfile \
+                        --destination my-repo/undeadmiles-watcher:jenkins-built \
+                        --no-push
+                        '''
+                    }
                 }
             }
         }
